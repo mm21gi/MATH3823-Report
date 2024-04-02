@@ -1,0 +1,120 @@
+data <- read.csv("https://rgaykroyd.github.io/MATH3823/Datasets/adelaide-82.csv")
+
+#TASK1
+n_rows <- nrow(data)
+print(paste("Num rows:", n_rows))
+
+t_grads <- sum(data$total)
+print(paste("Total num grads:", t_grads))
+
+t_mal <- sum(data$total[data$sex == "M"])
+t_fem <- sum(data$total[data$sex == "F"])
+
+t_mal_surv <- sum(data$survive[data$sex == "M"])
+t_fem_surv <- sum(data$survive[data$sex == "F"])
+
+print(paste("Total M: ", t_mal))
+print(paste("Total M Surviving: ", t_mal_surv))
+print(paste("Total F: ", t_fem))
+print(paste("Total F Surviving: ", t_fem_surv))
+
+t_fac <- tapply(data$total, data$faculty, sum)
+fac_surv <- tapply(data$survive, data$faculty, sum)
+
+print("Total of Each Faculty:")
+print(t_fac)
+print("Total of Each Faculty Surviving:")
+print(fac_surv)
+
+rate_mal_surv <- t_mal_surv / t_mal
+rate_fem_surv <- t_fem_surv / t_fem
+print(paste("Survival Rate M: ", round(rate_mal_surv, 4)))
+print(paste("Survival Rate F: ", round(rate_fem_surv, 4)))
+
+rate_fac_surv <- fac_surv / t_fac
+print("Survival Rates of Each Faculty:")
+print(round(rate_fac_surv, 4))
+
+t_by_fac_sex <- aggregate(total ~ faculty + sex, data=data, FUN=sum)
+print("Total by Faculty & Sex:")
+print(t_by_fac_sex)
+
+t_grads_by_year <- aggregate(total ~ year, data=data, sum)
+t_surv_by_year <- aggregate(survive ~ year, data=data, sum)
+
+par(mfrow = c(1, 1))
+data$survival_rate <- data$survive / data$total
+plot(data$total, data$survive, xlab="Total Graduates", ylab="Surviving Graduates", main="Surviving vs Total Graduates", pch=19, col='blue')
+lines(lowess(data$total, data$survive), col="red", lwd=2)
+par(mfrow = c(1, 2))
+
+corr_coeff <- cor(data$total, data$survive)
+print(paste("Correlation coefficient: ", corr_coeff))
+
+t_by_year_sex <- aggregate(total ~ year + sex, data=data, sum)
+years <- unique(t_by_year_sex$year)
+m <- t_by_year_sex$total[t_by_year_sex$sex == "M"]
+f <- t_by_year_sex$total[t_by_year_sex$sex == "F"]
+
+heights <- rbind(m,f)
+barplot(heights, beside=FALSE, col=c("lightblue", "pink"), names.arg=years, main="Total Males vs Females per Year", xlab="Year", ylab="Total", legend.text=c("Total Males", "Total Females"), args.legend=list(x="topleft"))
+
+t_by_year_fac <- aggregate(total ~ year + faculty, data=data, sum)
+
+years <- sort(unique(t_by_year_fac$year))
+faculties <- sort(unique(t_by_year_fac$faculty))
+t_per_fac <- matrix(0, nrow = length(years), ncol = length(faculties), dimnames = list(years, faculties))
+
+for (i in 1:nrow(t_by_year_fac)) {
+  y_index <- as.integer(t_by_year_fac$year[i]) - min(years) + 1
+  f_index <- match(t_by_year_fac$faculty[i], faculties)
+  t_per_fac[y_index, f_index] <- t_by_year_fac$total[i]
+}
+
+fac_col <- c("brown", "orange", "green", "purple")
+
+barplot(t(t_per_fac),
+        col = fac_col,
+        main = "Total Graduates per Faculty per Year",
+        xlab = "Year",
+        ylab = "Total",
+        legend.text = c("A","E","M","S"), 
+        args.legend = list(x = "topleft"),
+        beside = FALSE,
+        names.arg = years)
+
+f_rates <- aggregate(survival_rate ~ faculty, data, mean)
+s_rates <- aggregate(survival_rate ~ sex, data, mean)
+
+barplot(f_rates$survival_rate, names.arg = f_rates$faculty, 
+        main = "Survival Rate by Faculty", xlab = "Faculty", ylab = "Survival Rate", 
+        col = fac_col, ylim = c(0, max(c(f_rates$survival_rate, s_rates$survival_rate))))
+
+s_col <- c("pink", "lightblue")
+
+barplot(s_rates$survival_rate, names.arg = s_rates$sex, 
+        main = "Survival Rate by Sex", xlab = "Sex", ylab = "Survival Rate", 
+        col = s_col, ylim = c(0, max(c(f_rates$survival_rate, s_rates$survival_rate))))
+
+
+hist(data$survive,
+     breaks = "Sturges",
+     freq = FALSE,
+     main = "Survival Distribution",
+     xlab = "Survive",
+     ylab = "Density",
+     col = "grey",
+     border = "black"
+)
+
+lines(density(data$survive), col = "blue", lwd = 2)
+
+plot(data$year, data$survive,
+     xlab = "Year",
+     ylab = "Number of Graduates Survived",
+     main = "Survival Over Years",
+     pch = 19,
+     ylim = c(0,40),
+     col = "black")
+
+par(mfrow = c(1, 1))
