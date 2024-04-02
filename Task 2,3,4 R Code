@@ -1,0 +1,123 @@
+data <- read.csv("https://rgaykroyd.github.io/MATH3823/Datasets/adelaide-82.csv")
+
+data$survive <- as.numeric(data$survive)
+data$total <- as.numeric(data$total)
+
+data$year <- as.factor(data$year)
+data$faculty <- as.factor(data$faculty)
+data$sex <- as.factor(data$sex)
+
+data_male <- subset(data, sex == "M")
+data_female <- subset(data, sex == "F")
+
+plot_residuals <- function(model, main_title) {
+  residuals_model <- residuals(model, type = "response")
+  fitted_values_model <- fitted(model, type = "response")
+  plot(fitted_values_model, residuals_model,
+       xlab = "50+ Year Survival Probabilities (Predicted By Model)",
+       ylab = "Residuals",
+       main = main_title,
+       pch = 20)
+  abline(h = 0, col = "red")
+}
+
+par(mfrow = c(1, 1))
+
+model <- glm(cbind(survive, total - survive) ~ year + faculty + sex, family = binomial, data = data)
+plot_residuals(model, "Residual Plot for Original Model")
+
+summary(model)
+deviance_table1 <- anova(model, test = "Chi")
+print(deviance_table1)
+
+new <- data.frame(
+  year = factor(c(1941, 1938), levels = levels(data$year)),
+  faculty = factor(c("M", "E"), levels = levels(data$faculty)),
+  sex = factor(c("M", "F"), levels = levels(data$sex))
+)
+predictions <- predict(model, new = new, type = "response")
+
+cat("Estimated intercept parameter value:", coef(model)[1], "\n")
+cat("Predicted probability of survival for sex=M, year=1941, faculty=M:", predictions[1], "\n")
+cat("Predicted probability of survival for sex=F, year=1938, faculty=E:", predictions[2], "\n")
+cat("Standard deviation of the deviance residuals:", sd(residuals(model, type = "deviance")), "\n")
+
+par(mfrow = c(1, 3))
+
+y <- levels(data$year)
+f <- levels(data$faculty)
+s <- levels(data$sex)
+
+new_y <- expand.grid(year=y, faculty=f[1], sex=s[1])
+new_f <- expand.grid(year=y[1], faculty=f, sex=s[1])
+new_s <- expand.grid(year=y[1], faculty=f[1], sex=s)
+
+pred_y <- predict(model, newdata=new_y, type="response")
+pred_f <- predict(model, newdata=new_f, type="response")
+pred_s <- predict(model, newdata=new_s, type="response")
+
+plot_logistic_factor <- function(x, y, xlab, main) {
+  plot(x, y, xlab=xlab, ylab="Estimated Probability of Survival",
+       main=main, pch=19, ylim=c(0.5, 0.9), col="black")
+  lines(x, y, type="l", col="red", lwd=2)
+  points(x, y, pch=19, col="blue")
+}
+
+plot_logistic_factor(new_y$year, pred_y, xlab="Year", main="Logistic model for Year")
+plot_logistic_factor(new_f$faculty, pred_f, xlab="Faculty", main="Logistic model for Faculty")
+plot_logistic_factor(new_s$sex, pred_s, xlab="Sex", main="Logistic model for Sex")
+
+par(mfrow = c(1, 2))
+
+model_without_interaction <- glm(cbind(survive, total - survive) ~ faculty + sex, family = binomial, data = data)
+plot_residuals(model_without_interaction, "Residual Plot for Model without Interaction")
+
+summary(model_without_interaction)
+deviance_table2 <- anova(model_without_interaction, test = "Chi")
+print(deviance_table2)
+
+fs_combos <- expand.grid(faculty = levels(data$faculty), sex = levels(data$sex))
+for (i in 1:nrow(fs_combos)) {
+  fitted_without_interaction <- predict(model_without_interaction, newdata = data.frame(faculty = fs_combos[i, "faculty"], sex = fs_combos[i, "sex"]), type = "response")
+  print(paste("Faculty:", fs_combos[i, "faculty"], ", Sex:", fs_combos[i, "sex"], ", Fitted Value:", fitted_without_interaction))
+}
+
+model_with_interaction <- glm(cbind(survive, total - survive) ~ faculty*sex, family = binomial, data = data)
+plot_residuals(model_with_interaction, "Residual Plot for Model with Interaction")
+
+summary(model_with_interaction)
+deviance_table3 <- anova(model_with_interaction, test = "Chi")
+print(deviance_table3)
+
+data <- data[!data$year %in% c("1945", "1946"), ]
+data$faculty <- as.factor(ifelse(data$faculty %in% c("A", "M"), "A&M", ifelse(data$faculty %in% c("S", "E"), "S&E", data$faculty)))
+
+par(mfrow = c(1, 2))
+
+model_updated <- glm(cbind(survive, total - survive) ~ year + faculty + sex, family = binomial, data = data)
+plot_residuals(model_updated, "Residual Plot for Updated Model")
+
+summary(model_updated)
+deviance_table4 <- anova(model_updated, test = "Chi")
+print(deviance_table4)
+
+model_updated2 <- glm(cbind(survive, total - survive) ~ faculty + sex, family = binomial, data = data)
+plot_residuals(model_updated2, "Residual Plot for Updated Model 2")
+
+summary(model_updated2)
+deviance_table5 <- anova(model_updated2, test = "Chi")
+print(deviance_table5)
+
+model_male <- glm(cbind(survive, total - survive) ~ faculty, family = binomial, data = data_male)
+plot_residuals(model_male, "Residual Plot for Male Model")
+
+model_female <- glm(cbind(survive, total - survive) ~ faculty, family = binomial, data = data_female)
+plot_residuals(model_female, "Residual Plot for Female Model")
+
+summary(model_male)
+deviance_table6 <- anova(model_male, test = "Chi")
+print(deviance_table6)
+
+summary(model_female)
+deviance_table7 <- anova(model_female, test = "Chi")
+print(deviance_table7)
